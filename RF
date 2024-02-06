@@ -1,1 +1,78 @@
+import pandas as pd
+from sklearn.model_selection import GridSearchCV, train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.svm import SVR
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import ExtraTreesRegressor, AdaBoostRegressor
+from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
+from catboost import CatBoostRegressor
+import numpy as np
+
+# 데이터 로드
+data = pd.read_csv('C:/Users/umsea/Downloads/대전_열환경/Thermal_cooling/data/data.csv')
+
+# 독립 변수 및 종속 변수 선택
+independent_variables = ['distanceRiver', 'shadowRatio', 'width', 'Ncar', 'heightL', 'heightR', 'BtypeL', 'BtypeR']
+X = data[independent_variables]
+y = data['Mean']
+
+
+X = pd.get_dummies(X)
+
+# 데이터를 훈련 세트와 테스트 세트로 분할
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 모델 및 그리드 설정
+models = {
+    'DecisionTreeRegressor': DecisionTreeRegressor(),
+    'ExtraTreesRegressor': ExtraTreesRegressor(),
+    'AdaBoostRegressor': AdaBoostRegressor(),
+    'XGBRegressor': XGBRegressor(),
+    'LGBMRegressor': LGBMRegressor(),
+    'CatBoostRegressor': CatBoostRegressor()
+}
+
+grids = {
+    'DecisionTreeRegressor': {'max_depth': [3, 5, 10]},
+    'ExtraTreesRegressor': {'n_estimators': [50, 100, 150], 'max_features': ['auto', 'sqrt', 'log2']},
+    'AdaBoostRegressor': {'n_estimators': [50, 100, 150], 'learning_rate': [0.01, 0.1, 1]},
+    'XGBRegressor': {'n_estimators': [50, 100, 150], 'learning_rate': [0.01, 0.1, 0.2]},
+    'LGBMRegressor': {'n_estimators': [50, 100, 150], 'learning_rate': [0.01, 0.1, 0.2]},
+    'CatBoostRegressor': {'n_estimators': [50, 100, 150], 'learning_rate': [0.01, 0.1, 0.2]}
+}
+
+# 변수 초기화
+best_estimators = {}
+model_scores = {}
+
+# 각 모델에 대한 그리드 서치 수행 및 최고 점수 저장
+for model_name in models:
+    estimator = models[model_name]
+    grid = grids[model_name]
+    grid_search = GridSearchCV(estimator, grid, cv=5, scoring='neg_mean_squared_error', n_jobs=-1)
+    grid_search.fit(X_train, y_train)
+    best_estimators[model_name] = grid_search.best_estimator_
+    # 모델별 최고 점수와 최적 파라미터 저장
+    model_scores[model_name] = {
+        'Best Score (neg_mean_squared_error)': grid_search.best_score_,
+        'Best Params': grid_search.best_params_
+    }
+
+# 최적의 모델 선택
+best_model_name = max(best_estimators, key=lambda name: cross_val_score(best_estimators[name], X_train, y_train, cv=5, scoring='neg_mean_squared_error').mean())
+best_model = best_estimators[best_model_name]
+
+# 모델별 최고 점수 및 최적 파라미터 한번에 출력
+print("\nModel Performance Summary:")
+for model_name, scores in model_scores.items():
+    print(f'\n{model_name}:')
+    print(f"Mean Cross-Validation Score (neg_mean_squared_error): {scores['Best Score (neg_mean_squared_error)']}")
+    print(f"Best Params: {scores['Best Params']}")
+
+# 최적의 모델 정보 출력
+print(f'\nBest Model: {best_model_name}, Model: {best_model}')
+
 
